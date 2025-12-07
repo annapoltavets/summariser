@@ -1,5 +1,5 @@
 """
-Unit tests for the YouTube Summariser Agent modules.
+Unit tests for the YouTube Summarizer Agent modules.
 """
 
 import unittest

@@ -1,4 +1,4 @@
-# YouTube Video Summariser Agent
+# YouTube Video Summarizer Agent
 
 An AI-powered agent that monitors YouTube channels, extracts video transcripts, generates summaries using OpenAI's GPT, and sends notifications via Telegram.
 
@@ -78,7 +78,7 @@ The agent will:
 ## Project Structure
 
 ```
-summariser/
+summarizer/
 ├── agent.py                 # Main agent script
 ├── youtube_monitor.py       # YouTube API integration
 ├── ai_summarizer.py         # OpenAI summarization
@@ -106,7 +106,7 @@ the main points and key takeaways from the transcript.
 
 The agent logs all activities to:
 - Console (stdout)
-- `summariser.log` file
+- `summarizer.log` file
 
 ## Troubleshooting
 
@@ -128,7 +128,7 @@ To run the agent periodically, you can use:
 ### Linux/Mac (cron)
 ```bash
 # Run every day at 9 AM
-0 9 * * * cd /path/to/summariser && /path/to/venv/bin/python agent.py
+0 9 * * * cd /path/to/summarizer && /path/to/venv/bin/python agent.py
 ```
 
 ### Windows (Task Scheduler)

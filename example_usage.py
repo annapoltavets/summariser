@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example usage script for the YouTube Summariser Agent.
+Example usage script for the YouTube Summarizer Agent.
 
 This script demonstrates how to use the agent programmatically.
 """

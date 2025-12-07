@@ -42,8 +42,7 @@ class TelegramNotifier:
             await self.bot.send_message(
                 chat_id=self.chat_id,
                 text=text,
-                parse_mode=parse_mode,
-                disable_web_page_preview=False
+                parse_mode=parse_mode
             )
             logger.info(f"Message sent to Telegram chat {self.chat_id}")
             return True

@@ -25,7 +25,6 @@ class AISummarizer:
         """
         self.api_key = api_key
         self.model = model
-        openai.api_key = api_key
         self.client = openai.OpenAI(api_key=api_key)
     
     def summarize(self, text: str, max_length: int = 500) -> Optional[str]:
