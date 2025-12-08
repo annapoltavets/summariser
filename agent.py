@@ -1,139 +1,114 @@
-#!/usr/bin/env python3
 """
-YouTube Video Summarizer Agent
+YouTube Channel Monitor and Video Summarizer
 
-This agent monitors YouTube channels, extracts video transcripts,
-generates AI summaries, and sends them via Telegram.
+This module handles fetching recent videos from YouTube channels
+and retrieving their transcripts.
 """
-
-import os
-import sys
 import asyncio
-import logging
-from typing import List
-from dotenv import load_dotenv
+import datetime
+import time
+from typing import List, Dict, Optional
 
-from youtube_monitor import YouTubeMonitor
+from dotenv import load_dotenv
+import logging
+
 from ai_summarizer import AISummarizer
 from telegram_notifier import TelegramNotifier
-
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('summarizer.log')
-    ]
-)
+from youtube_monitor import YouTubeFetcher
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 
-class YouTubeSummarizerAgent:
-    """Main agent that coordinates the summarization workflow."""
-    
+class Agent:
+    videos = []
+
     def __init__(self):
-        """Initialize the agent with configuration from environment variables."""
-        load_dotenv()
-        
-        # Load configuration
-        self.youtube_api_key = os.getenv('YOUTUBE_API_KEY')
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
-        self.channel_ids = os.getenv('YOUTUBE_CHANNEL_IDS', '').split(',')
-        self.max_videos = int(os.getenv('MAX_VIDEOS_PER_CHANNEL', '3'))
-        
-        # Validate configuration
-        self._validate_config()
-        
-        # Initialize components
-        self.youtube_monitor = YouTubeMonitor(self.youtube_api_key)
-        self.ai_summarizer = AISummarizer(self.openai_api_key)
-        self.telegram_notifier = TelegramNotifier(self.telegram_bot_token, self.telegram_chat_id)
-        
-        logger.info("YouTubeSummarizerAgent initialized successfully")
-    
-    def _validate_config(self):
-        """Validate that all required configuration is present."""
-        missing = []
-        
-        if not self.youtube_api_key:
-            missing.append('YOUTUBE_API_KEY')
-        if not self.openai_api_key:
-            missing.append('OPENAI_API_KEY')
-        if not self.telegram_bot_token:
-            missing.append('TELEGRAM_BOT_TOKEN')
-        if not self.telegram_chat_id:
-            missing.append('TELEGRAM_CHAT_ID')
-        if not self.channel_ids or self.channel_ids == ['']:
-            missing.append('YOUTUBE_CHANNEL_IDS')
-        
-        if missing:
-            logger.error(f"Missing required environment variables: {', '.join(missing)}")
-            logger.error("Please check your .env file and ensure all required variables are set.")
-            sys.exit(1)
-    
-    async def run(self):
-        """Execute the main agent workflow."""
-        logger.info("Starting YouTube Summarizer Agent")
-        logger.info(f"Monitoring {len(self.channel_ids)} channels")
-        
-        try:
-            # Step 1: Fetch videos with transcripts
-            logger.info("Fetching recent videos from YouTube channels...")
-            videos = self.youtube_monitor.get_videos_with_transcripts(
-                self.channel_ids,
-                self.max_videos
-            )
-            
-            if not videos:
-                logger.warning("No videos with transcripts found")
-                return
-            
-            logger.info(f"Found {len(videos)} videos with transcripts")
-            
-            # Step 2: Generate summaries
-            logger.info("Generating AI summaries...")
-            summaries = []
-            
-            for video in videos:
-                logger.info(f"Summarizing: {video['title']}")
-                summary = self.ai_summarizer.summarize_video(video)
-                
-                if summary:
-                    summaries.append(summary)
-            
-            logger.info(f"Generated {len(summaries)} summaries")
-            
-            if not summaries:
-                logger.warning("No summaries generated")
-                return
-            
-            # Step 3: Send summaries to Telegram
-            logger.info("Sending summaries to Telegram...")
-            success_count = await self.telegram_notifier.send_batch_summaries(summaries)
-            
-            logger.info(f"Agent completed successfully. Sent {success_count}/{len(summaries)} summaries")
-            
-        except Exception as e:
-            logger.error(f"Error in agent workflow: {e}", exc_info=True)
-            raise
 
+        self.fetcher = YouTubeFetcher()
+        self.summarizer = AISummarizer()
+        self.notifier = TelegramNotifier()
 
-async def main():
-    """Main entry point for the agent."""
-    try:
-        agent = YouTubeSummarizerAgent()
-        await agent.run()
-    except KeyboardInterrupt:
-        logger.info("Agent interrupted by user")
-    except Exception as e:
-        logger.error(f"Agent failed with error: {e}", exc_info=True)
-        sys.exit(1)
+    def search_channel_videos(self, channel_name: str, max_results: int = 1, days: int = 2, lang: str = 'ru') -> None:
+        items = self.fetcher.search_channel_videos(channel_name, max_results)
+
+        for item in items:
+            vidsnippet = item.get("snippet", {})
+            cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+            published_at = datetime.datetime.fromisoformat(vidsnippet.get("publishedAt").replace("Z", "+00:00"))
+            if published_at < cutoff:
+                continue
+
+            video_id = item.get("id", {}).get("videoId")
+            print("Found video:", vidsnippet.get("channelTitle"), video_id, vidsnippet.get("title"))
+
+            transcript = self.fetcher.get_video_transcript(video_id, lang)
+            if transcript is None:
+                continue
+            else:
+                prompt = f"""Просуммируй мнение(не пиши фразу Ведущие обсуждали...), аргументы и выводы ведущих по вопросу обсуждения в 2-3 тезиса. Поставь смайлик после тезисов
+                Обязательно добавь интересные детали обсуждения.
+                Стиль изложения должен быть живым, интересным, с элементами юмора. В стиле юмористической репортажной статьи. Можно использовать эмодзи и грубую лексику.
+                Затем перечислить Какие события обсуждали в виде списка. 
+                События опиши следующим образом:
+                Если предметом обсуждения является документ или статья или книга и тп, то приведи краткое содержание документа и укажи авторов. 
+                Если предметом обсуждения является встреча, то опиши кто и где встречался, и зачем.
+                Если предметом обсуждения является событие, то опиши что случилось, где, когда, и с кем. 
+                Текст: {transcript}"""
+
+                summary = self.summarizer.summarize(prompt)
+                print(summary)
+                print('--' * 20)
+
+                url = f"https://www.youtube.com/watch?v={video_id}"
+
+                self.videos.append({
+                    "channel_id": vidsnippet.get("channelId"),
+                    "channel_title": vidsnippet.get("channelTitle"),
+                    "video_id": video_id,
+                    "title": vidsnippet.get("title"),
+                    "published_at": vidsnippet.get("publishedAt"),
+                    "transcript": transcript,
+                    "summary": summary,
+                    "url": url
+                })
+
+                asyncio.run(self.notifier.send_message(f"{summary}\n{url}"))
+                time.sleep(10)
+
+    def summary_of_summaries(self) -> Optional[str]:
+        summaries = "\n".join([v['channel_title'] + ": " + v['summary'] for v in self.videos if v.get('summary')])
+
+        total_prompt = f"""Сделай сводный список обсуждений в эфире за прошлый день. 
+        Вначале 2-3 предложения о главных темах обсуждений и общие выводы.
+        Затем приведи список интересных деталей из обсуждений.
+        Обязательно укажи канал, на котором это обсуждалось.
+        Добавь смайлик в конце каждого пункта списка.
+        Текст:
+            {summaries}
+            """
+        ss = self.summarizer.summarize(total_prompt)
+        print('==' * 20)
+        print('Summary of summaries:')
+        print(ss)
+        print('==' * 20)
+
+        asyncio.run(self.notifier.send_message(ss))
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    y = Agent()
+
+    # y.search_channel_videos(channel_name='AnnaVanDensky', max_results=2, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='PolitekaOnline', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='Global_Capital', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='YuriyRomanenko_Ukraine', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='Dikiylive', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='HUGSFUND', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='katarsis_ua', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='LEHIST_UA', max_results=5, days=1, lang='ru')
+    # y.search_channel_videos(channel_name='SLubarsky', max_results=5, days=1, lang='ru')
+    y.search_channel_videos(channel_name='vvlashchenko', max_results=5, days=2, lang='ru')
+    # y.search_channel_videos(channel_name='nemyrialive', max_results=5, days=2, lang='ru')
+
+    # y.summary_of_summaries()

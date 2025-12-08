@@ -4,120 +4,72 @@ YouTube Channel Monitor and Video Summarizer
 This module handles fetching recent videos from YouTube channels
 and retrieving their transcripts.
 """
-
+import asyncio
+import datetime
 import os
+import time
 from typing import List, Dict, Optional
+
+from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import WebshareProxyConfig
 import logging
 
+from ai_summarizer import AISummarizer
+from telegram_notifier import TelegramNotifier
+
 logger = logging.getLogger(__name__)
+load_dotenv()
 
-
-class YouTubeMonitor:
-    """Monitors YouTube channels and extracts video transcripts."""
+class YouTubeFetcher:
     
-    def __init__(self, api_key: str):
-        """
-        Initialize the YouTube monitor.
-        
-        Args:
-            api_key: YouTube Data API key
-        """
-        self.api_key = api_key
-        self.youtube = build('youtube', 'v3', developerKey=api_key)
+    def __init__(self):
+        self.api_key = os.getenv("YOUTUBE_API_KEY")
+        self.youtube = build('youtube', 'v3', developerKey=self.api_key)
     
-    def get_recent_videos(self, channel_id: str, max_results: int = 3) -> List[Dict]:
-        """
-        Get recent videos from a YouTube channel.
-        
-        Args:
-            channel_id: YouTube channel ID
-            max_results: Maximum number of videos to retrieve
-            
-        Returns:
-            List of video information dictionaries
-        """
+    def resolve_channel_id(self, identifier: str) -> Optional[str]:
         try:
-            # Get the uploads playlist ID for the channel
-            channel_response = self.youtube.channels().list(
-                part='contentDetails',
-                id=channel_id
-            ).execute()
-            
-            if not channel_response.get('items'):
-                logger.warning(f"Channel {channel_id} not found")
-                return []
-            
-            uploads_playlist_id = channel_response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
-            
-            # Get recent videos from the uploads playlist
-            playlist_response = self.youtube.playlistItems().list(
-                part='snippet,contentDetails',
-                playlistId=uploads_playlist_id,
-                maxResults=max_results
-            ).execute()
-            
-            videos = []
-            for item in playlist_response.get('items', []):
-                video_id = item['contentDetails']['videoId']
-                video_title = item['snippet']['title']
-                published_at = item['snippet']['publishedAt']
-                
-                videos.append({
-                    'video_id': video_id,
-                    'title': video_title,
-                    'published_at': published_at,
-                    'channel_id': channel_id
-                })
-            
-            logger.info(f"Found {len(videos)} videos for channel {channel_id}")
-            return videos
-            
+            resp = self.youtube.search().list(part='id', q=identifier, type='channel', maxResults=1).execute()
+            items = resp.get('items', [])
+            if items:
+                channel_id = items[0].get('id', {}).get('channelId')
+                if channel_id:
+                    return channel_id
         except Exception as e:
-            logger.error(f"Error fetching videos for channel {channel_id}: {e}")
-            return []
-    
-    def get_video_transcript(self, video_id: str) -> Optional[str]:
-        """
-        Get the transcript of a YouTube video.
-        
-        Args:
-            video_id: YouTube video ID
-            
-        Returns:
-            Video transcript as a single string, or None if unavailable
-        """
+            logger.debug(f"search().list(...) failed for '{identifier}': {e}")
+
+        # Could not resolve
+        logger.warning(f"Could not resolve channel identifier '{identifier}' to a channel ID")
+        return None
+
+    def get_video_transcript(self, video_id: str, lang = 'ru') -> Optional[str]:
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-            transcript = ' '.join([entry['text'] for entry in transcript_list])
-            logger.info(f"Retrieved transcript for video {video_id} ({len(transcript)} chars)")
-            return transcript
+            ytt_api = YouTubeTranscriptApi(
+                proxy_config=WebshareProxyConfig(
+                    proxy_username=os.getenv("PROXY_USR"),
+                    proxy_password=os.getenv("PROXY_PWD"),
+                )
+            )
+
+            # all requests done by ytt_api will now be proxied through Webshare
+            t = ytt_api.fetch(video_id=video_id, languages=[lang])
+
+            return "\n".join([x.text for x in t.snippets])
+
         except Exception as e:
             logger.warning(f"Could not retrieve transcript for video {video_id}: {e}")
             return None
-    
-    def get_videos_with_transcripts(self, channel_ids: List[str], max_videos_per_channel: int = 3) -> List[Dict]:
-        """
-        Get recent videos with transcripts from multiple channels.
-        
-        Args:
-            channel_ids: List of YouTube channel IDs
-            max_videos_per_channel: Maximum number of videos per channel
-            
-        Returns:
-            List of videos with transcripts
-        """
-        all_videos = []
-        
-        for channel_id in channel_ids:
-            videos = self.get_recent_videos(channel_id, max_videos_per_channel)
-            
-            for video in videos:
-                transcript = self.get_video_transcript(video['video_id'])
-                if transcript:
-                    video['transcript'] = transcript
-                    all_videos.append(video)
-        
-        logger.info(f"Total videos with transcripts: {len(all_videos)}")
-        return all_videos
+
+    def search_channel_videos(self, channel_name: str, max_results: int = 1) -> list[Dict]:
+        channel_id = self.resolve_channel_id(channel_name)
+
+        resp = self.youtube.search().list(
+            part="snippet",
+            channelId=channel_id,
+            order="date",
+            maxResults=max_results,
+            type="video"
+        ).execute()
+
+        return resp.get("items", [])
