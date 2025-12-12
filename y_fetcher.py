@@ -8,7 +8,7 @@ import asyncio
 import datetime
 import os
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, override
 
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
@@ -22,12 +22,40 @@ from telegram_notifier import TelegramNotifier
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-class YouTubeFetcher:
+# python
+from abc import ABC, abstractmethod
+from typing import List, Dict, Optional
+
+
+class FetcherInterface(ABC):
+    """
+    Minimal fetcher interface used by LangAgent.
+    Concrete adapters should wrap existing fetchers and implement these methods.
+    """
+
+    @abstractmethod
+    def resolve_channel_id(self, identifier: str) -> Optional[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch_videos(self, channel_name: str, max_results: int = 5) -> List[Dict]:
+        raise NotImplementedError
+
+    def get_video_transcript(self, video_id: str, lang: List[str]) -> Optional[str]:
+        """
+        Optional: return transcript text or None.
+        Default implementation returns None.
+        """
+        return None
+
+
+class YoutubeFetcher(FetcherInterface):
     
     def __init__(self):
         self.api_key = os.getenv("YOUTUBE_API_KEY")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
-    
+
+    @override
     def resolve_channel_id(self, identifier: str) -> Optional[str]:
         try:
             resp = self.youtube.search().list(part='id', q=identifier, type='channel', maxResults=1).execute()
@@ -43,7 +71,8 @@ class YouTubeFetcher:
         logger.warning(f"Could not resolve channel identifier '{identifier}' to a channel ID")
         return None
 
-    def get_video_transcript(self, video_id: str, lang = 'ru') -> Optional[str]:
+    @override
+    def get_video_transcript(self, video_id: str, lang: List[str]) -> Optional[str]:
         try:
             ytt_api = YouTubeTranscriptApi(
                 proxy_config=WebshareProxyConfig(
@@ -53,7 +82,7 @@ class YouTubeFetcher:
             )
 
             # all requests done by ytt_api will now be proxied through Webshare
-            t = ytt_api.fetch(video_id=video_id, languages=[lang])
+            t = ytt_api.fetch(video_id=video_id, languages=lang)
 
             return "\n".join([x.text for x in t.snippets])
 
@@ -61,15 +90,28 @@ class YouTubeFetcher:
             logger.warning(f"Could not retrieve transcript for video {video_id}: {e}")
             return None
 
-    def search_channel_videos(self, channel_name: str, max_results: int = 1) -> list[Dict]:
+    @override
+    def fetch_videos(self, channel_name: str, max_results: int = 1) -> List[Dict]:
         channel_id = self.resolve_channel_id(channel_name)
-
         resp = self.youtube.search().list(
-            part="snippet",
-            channelId=channel_id,
-            order="date",
-            maxResults=max_results,
-            type="video"
-        ).execute()
+                part="snippet",
+                channelId=channel_id,
+                order="date",
+                maxResults=max_results
+            ).execute()
 
         return resp.get("items", [])
+
+if __name__ == '__main__':
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    youtube = build('youtube', 'v3', developerKey=api_key)
+
+    resp = youtube.search().list(
+        part="snippet",
+        channelId='UCV54aMK_FxYTVzb2qyUuUIg',
+        order="date",
+        maxResults=50
+    ).execute()
+
+    resp1 = [x['snippet']['title'] for x in resp.get("items", []) if len(x['snippet']['description']) >0]
+    print(resp1)

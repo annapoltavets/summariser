@@ -22,15 +22,15 @@ class AISummarizer:
         self.model = model
         self.client = openai.OpenAI(api_key=self.api_key)
     
-    def summarize(self, prompt: str) -> Optional[str]:
+    def summarize(self, sys_pmt: str, prompt: str) -> Optional[str]:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that creates concise and informative summaries of video transcripts."},
+                    {"role": "system", "content": sys_pmt},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2
+                temperature=0
             )
             
             summary = response.choices[0].message.content.strip()
