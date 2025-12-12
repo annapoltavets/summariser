@@ -1,21 +1,13 @@
+# Git
+.git
+.gitignore
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -43,5 +35,12 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Data directory
+# Data directory (will be mounted as volume)
 data/
+
+# Documentation
+DOCKER.md
+README.md
+
+# Docker files
+docker-compose.yml

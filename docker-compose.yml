@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  summariser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: youtube-summariser
+    env_file:
+      - .env
+    volumes:
+      # Mount data directory to persist video information
+      - ./data:/app/data
+    restart: unless-stopped
