@@ -43,6 +43,4 @@ DOCKER.md
 README.md
 
 # Docker files
-Dockerfile
 docker-compose.yml
-.dockerignore

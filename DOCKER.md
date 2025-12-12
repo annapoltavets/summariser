@@ -111,8 +111,7 @@ To run the Docker container on a schedule using cron:
    ```bash
    #!/bin/bash
    cd /path/to/summariser
-   docker-compose up
-   docker-compose down
+   docker-compose run --rm summariser
    ```
 
 2. Make it executable:
@@ -139,8 +138,7 @@ To run the Docker container on a schedule using cron:
    ```batch
    @echo off
    cd C:\path\to\summariser
-   docker-compose up
-   docker-compose down
+   docker-compose run --rm summariser
    ```
 
 2. Open Task Scheduler and create a new task:
