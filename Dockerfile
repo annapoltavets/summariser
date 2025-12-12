@@ -8,9 +8,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+# Clean apt cache
+RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
 COPY requirements.txt .
