@@ -1,6 +1,6 @@
 # YouTube Video Summarizer Agent
 
-An AI-powered agent that monitors YouTube channels, extracts video transcripts, generates summaries using OpenAI's GPT, and sends notifications via Telegram.
+An AI-powered agent that monitors YouTube channels, extracts video transcripts, generates summaries using OpenAI's GPT, and sends notifications via Telegram. Now includes PDF document processing and Self-Supervised Learning (SSL) model capabilities.
 
 ## Features
 
@@ -8,6 +8,8 @@ An AI-powered agent that monitors YouTube channels, extracts video transcripts, 
 - 📝 **Transcript Extraction**: Retrieves video transcripts using YouTube's transcript API
 - 🤖 **AI Summarization**: Generates concise summaries using OpenAI's GPT models
 - 💬 **Telegram Notifications**: Sends formatted summaries directly to your Telegram chat
+- 📄 **PDF Document Processing**: Read and extract text from PDF documents
+- 🧠 **SSL Model**: Self-Supervised Learning model for advanced text processing and summarization
 
 ## Requirements
 
@@ -83,11 +85,74 @@ summarizer/
 ├── youtube_monitor.py       # YouTube API integration
 ├── ai_summarizer.py         # OpenAI summarization
 ├── telegram_notifier.py     # Telegram bot integration
+├── pdf_reader.py            # PDF document reader
+├── ssl_model.py             # Self-Supervised Learning model
+├── test_ssl_model.py        # Test script for SSL model and PDF reader
 ├── requirements.txt         # Python dependencies
 ├── .env.example            # Example environment configuration
 ├── .gitignore              # Git ignore rules
 └── README.md               # This file
 ```
+
+## PDF Processing and SSL Model
+
+### PDF Reader
+
+The PDF reader module allows you to extract text from PDF documents:
+
+```python
+from pdf_reader import PDFReader
+
+reader = PDFReader()
+
+# Read entire PDF
+text = reader.read_pdf("document.pdf")
+
+# Read PDF by pages
+pages = reader.read_pdf_pages("document.pdf")
+
+# Get PDF metadata
+metadata = reader.get_pdf_metadata("document.pdf")
+```
+
+### SSL Model
+
+The Self-Supervised Learning model provides advanced text processing capabilities:
+
+```python
+from ssl_model import SSLTextModel
+
+# Initialize the model
+model = SSLTextModel(model_name="facebook/bart-large-cnn")
+
+# Summarize text
+summary = model.summarize(text, max_length=150, min_length=50)
+
+# Extract key sentences
+key_sentences = model.extract_key_sentences(text, num_sentences=5)
+
+# Compute text similarity
+similarity = model.compute_similarity(text1, text2)
+
+# Encode text to embeddings
+embeddings = model.encode_text(text)
+```
+
+### Testing
+
+Run the comprehensive test suite:
+
+```bash
+python test_ssl_model.py
+```
+
+The test script validates:
+- PDF reading functionality
+- SSL model text encoding
+- Text summarization
+- Key sentence extraction
+- Similarity computation
+- Integration of PDF reader with SSL model
 
 ## Example Output
 
