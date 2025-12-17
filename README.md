@@ -37,6 +37,13 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+   **Note**: For SSL model functionality, torch and transformers are required (large packages):
+   ```bash
+   pip install torch transformers
+   ```
+   
+   The PDF reader works without these dependencies. SSL model features require them.
+
 4. Copy the example environment file and configure it:
 ```bash
 cp .env.example .env
@@ -140,13 +147,25 @@ embeddings = model.encode_text(text)
 
 ### Testing
 
-Run the comprehensive test suite:
+Run the PDF reader tests (no heavy dependencies required):
+
+```bash
+python test_pdf_reader.py
+```
+
+Run the comprehensive test suite (requires torch and transformers):
 
 ```bash
 python test_ssl_model.py
 ```
 
-The test script validates:
+Run the demo to see features in action:
+
+```bash
+python demo_pdf_ssl.py
+```
+
+The test scripts validate:
 - PDF reading functionality
 - SSL model text encoding
 - Text summarization
