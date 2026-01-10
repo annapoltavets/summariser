@@ -54,7 +54,7 @@ class LangAgent:
 
             self.videos.append(v)
             self._save_video_to_file(channel_name, v)
-            self._post(channel_name, id)
+            self._post(channel_name, v["video_id"])
 
     def _run_for_channel(self, channel_name: str, id: str, lang: List[str] = None):
         prompt_cfg = self.prompts.get(channel_name)
