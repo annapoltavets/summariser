@@ -24,4 +24,8 @@ class PromptRegistry:
         self._registry[channel.lower()] = PromptConfig(channel=channel, sys_prompt=template)
 
     def get(self, channel: str) -> PromptConfig:
-        return self._registry.get(channel.lower())
+        ch = channel.lower().strip()
+        if ch in self._registry:
+            return self._registry.get(ch)
+        else:
+            return self._registry.get("default")

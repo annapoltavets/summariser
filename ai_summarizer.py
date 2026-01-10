@@ -23,12 +23,13 @@ class AISummarizer:
         self.client = openai.OpenAI(api_key=self.api_key)
     
     def summarize(self, sys_pmt: str, prompt: str) -> Optional[str]:
+
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": sys_pmt},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt[:127000]}
                 ],
                 temperature=0
             )
